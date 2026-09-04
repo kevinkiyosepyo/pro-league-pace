@@ -1,0 +1,5 @@
+remote_theme: pages-themes/cayman@v0.2.0
+plugins:
+  - jekyll-remote-theme
+title: "Tempo of the Game"
+description: "Which pro League of Legends league plays the bloodiest games? A DSC 80 project by Kevin Pyo."
