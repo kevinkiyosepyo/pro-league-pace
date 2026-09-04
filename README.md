@@ -2,15 +2,13 @@
 
 By Kevin Pyo
 
-Built on pro match data from [Oracle's Elixir](https://oracleselixir.com/tools/downloads).
+A DSC 80 project at UC San Diego, built on pro match data from [Oracle's Elixir](https://oracleselixir.com/tools/downloads).
 
 ## Introduction
 
-Professional League of Legends is played across regional leagues with very different reputations. The LPL (China) is known for chaotic, fight heavy games; the LCK (Korea) for slow, methodical macro play. This project asks which league actually plays the most action packed games, and in particular whether the LPL really is bloodier than the LCK. I measure action as combined kills per minute (CKPM): total kills by both teams in a game, divided by the game's length in minutes.
+Professional League of Legends is played across regional leagues with very different reputations. The LPL (China) is known for chaotic, fight-heavy games; the LCK (Korea) for slow, methodical macro play. This project asks which league actually plays the most action-packed games, and in particular whether the LPL really is bloodier than the LCK. I measure action as combined kills per minute (CKPM): total kills by both teams in a game, divided by the game's length in minutes.
 
-The data covers professional matches from the 2022 season (2022-01-10 to 2022-02-11), 18,143 rows and 165 columns. Each game contributes 12 rows, one per player plus a summary row per team, and after cleaning the analysis works with 1,512 games. 
-
-The columns that matter here: `league`, `side` (Blue or Red), `result` (win or loss), `kills` and `deaths` (together, a game's total kills), `gamelength` in seconds, `datacompleteness` (whether detailed stats were recorded), and the 15 minute timeline stats `golddiffat15`, `xpdiffat15`, `csdiffat15`, `killsat15`, and `deathsat15`, which power the prediction task in the second half. Pace is a real part of the viewing experience so quantifying it tells fans what each league serves up. And measuring how well 15 minute leads predict wins says how snowbally the pro game really is.
+The data covers professional matches from the 2022 season (2022-01-10 to 2022-02-11), 18,143 rows and 165 columns. Each game contributes 12 rows, one per player plus a summary row per team, and after cleaning the analysis works with 1,512 games. The columns that matter here: `league`, `side` (Blue or Red), `result` (win or loss), `kills` and `deaths` (together, a game's total kills), `gamelength` in seconds, `datacompleteness` (whether detailed stats were recorded), and the 15-minute timeline stats `golddiffat15`, `xpdiffat15`, `csdiffat15`, `killsat15`, and `deathsat15`, which power the prediction task in the second half. Pace is a real part of the viewing experience, so quantifying it tells fans what each league serves up. And measuring how well 15-minute leads predict wins says how snowbally the pro game really is.
 
 ## Data Cleaning and Exploratory Data Analysis
 
@@ -96,7 +94,7 @@ The baseline is a logistic regression in a single sklearn `Pipeline` with two fe
 
 I added four things on top of the baseline features, each with a reason from the game itself. `kill_diff_15 = killsat15 - deathsat15`, because kills carry momentum value that raw gold understates, like shutdown bounties and free objectives while the enemy is down players. Standardized `xpdiffat15` and `csdiffat15`, because experience gates levels and ultimates and CS measures lane control, with standardization putting gold (thousands), XP (thousands), and CS (tens) on one scale so regularization treats them evenly. One-hot encoded `league`, because the same lead converts to wins at different rates across regions. And `firstdragon`, an early map-control signal the scalar diffs don't capture. I compared three algorithms (logistic regression, random forest, gradient boosting) in identical pipelines, tuning hyperparameters stated in advance (`C` for logistic regression; tree depth, tree count, and learning rate for the ensembles) with `GridSearchCV` and 5-fold cross-validation on the training set only.
 
-The best cross-validated model was grad boosting (learning_rate: 0.1, max_depth: 3), CV accuracy 0.7419. On the same held-out test set as the baseline it scores 0.731 accuracy (F1 = 0.725) against the baseline's 0.728, a gain of +0.003. Small, and the smallness is the finding: the 15-minute gold lead already carries most of what there is to know about who wins, and the extra features mostly help with games near the margin.
+The best cross-validated model was gradient boosting (learning_rate: 0.1, max_depth: 3), CV accuracy 0.7419. On the same held-out test set as the baseline it scores 0.731 accuracy (F1 = 0.725) against the baseline's 0.728, a gain of +0.003. Small, and the smallness is the finding: the 15-minute gold lead already carries most of what there is to know about who wins, and the extra features mostly help with games near the margin.
 
 ## Fairness Analysis
 
