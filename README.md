@@ -1,14 +1,12 @@
 # Tempo of the Game: Which Pro League Plays the Bloodiest League of Legends?
 
-By Kevin Pyo
-
-A DSC 80 project at UC San Diego, built on pro match data from [Oracle's Elixir](https://oracleselixir.com/tools/downloads).
+*Kevin Pyo. Data from [Oracle's Elixir](https://oracleselixir.com/tools/downloads).*
 
 ## Introduction
 
 Professional League of Legends is played across regional leagues with very different reputations. The LPL (China) is known for chaotic, fight heavy games; the LCK (Korea) for slow, methodical macro play. This project asks which league actually plays the most action packed games, and in particular whether the LPL really is bloodier than the LCK. I measure action as combined kills per minute (CKPM): total kills by both teams in a game, divided by the game's length in minutes.
 
-The data covers professional matches from the 2022 season (2022-01-10 to 2022-02-11), 18,143 rows and 165 columns. Each game contributes 12 rows, one per player plus a summary row per team, and after cleaning the analysis works with 1,512 games. The columns that matter here: `league`, `side` (Blue or Red), `result` (win or loss), `kills` and `deaths` (together, a game's total kills), `gamelength` in seconds, `datacompleteness` (whether detailed stats were recorded), and the 15 minute timeline stats `golddiffat15`, `xpdiffat15`, `csdiffat15`, `killsat15`, and `deathsat15`, which power the prediction task in the second half. Pace is a real part of the viewing experience, so quantifying it tells fans what each league serves up. And measuring how well 15 minute leads predict wins says how snowbally the pro game really is.
+The data covers professional matches from the 2022 season (2022-01-10 to 2022-02-11), 18,143 rows and 165 columns. Each game contributes 12 rows, one per player plus a summary row per team, and after cleaning the analysis works with 1,512 games. The columns that matter here: `league`, `side` (Blue or Red), `result` (win or loss), `kills` and `deaths` (together, a game's total kills), `gamelength` in seconds, `datacompleteness` (whether detailed stats were recorded), and the 15 minute timeline stats `golddiffat15`, `xpdiffat15`, `csdiffat15`, `killsat15`, and `deathsat15`, which power the prediction task in the second half. Pace shapes what a game feels like to watch, so quantifying it tells fans what each league serves up. And measuring how well 15 minute leads predict wins says how snowbally the pro game really is.
 
 ## Data Cleaning and Exploratory Data Analysis
 
@@ -38,7 +36,7 @@ Sorting leagues by their kills per minute distributions puts the LPL near the to
 
 ### Aggregates
 
-Grouping by league confirms the picture numerically. The LPL plays shorter and bloodier games than the LCK, which sits last in mean kills per minute among the major leagues shown.
+The per league averages say the same thing. The LPL plays shorter and bloodier games than the LCK, which sits last in mean kills per minute among the major leagues shown.
 
 | league   |   games |   mean_length_min |   mean_total_kills |   mean_kpm |
 |:---------|--------:|------------------:|-------------------:|-----------:|
@@ -84,17 +82,17 @@ Result: across 116 LPL and 87 LCK games, the observed gap is 0.177 kills per min
 
 ## Framing a Prediction Problem
 
-I predict whether a team wins the game (the `result` column): binary classification. The response variable is the outcome everyone in the scene cares about, and it extends the tempo question, because if 15 minute leads predict winners well, the early game decides matches. Features are restricted to what is knowable at the 15 minute mark: `golddiffat15`, `xpdiffat15`, `csdiffat15`, `killsat15`, `deathsat15`, `firstblood`, `firstdragon`, `side`, and `league`. Anything decided later, like total kills, first baron, or game length, is excluded because it would leak the answer. The metric is accuracy: each game produces exactly one winner and one loser, so the classes are perfectly balanced and accuracy reads directly as the share of games called correctly, with no asymmetric cost that would favor precision or recall. I report F1 as a check. Modeling uses the 2,779 team rows from games with complete timeline data.
+I predict whether a team wins the game (the `result` column): binary classification. The response variable is the game's outcome, and predicting it extends the tempo question, because if 15 minute leads predict winners well, the early game decides matches. Features are restricted to what is knowable at the 15 minute mark: `golddiffat15`, `xpdiffat15`, `csdiffat15`, `killsat15`, `deathsat15`, `firstblood`, `firstdragon`, `side`, and `league`. Anything decided later, like total kills, first baron, or game length, is excluded because it would leak the answer. The metric is accuracy: each game produces exactly one winner and one loser, so the classes are perfectly balanced and accuracy reads directly as the share of games called correctly, with no asymmetric cost that would favor precision or recall. I report F1 as a check. Modeling uses the 2,779 team rows from games with complete timeline data.
 
 ## Baseline Model
 
-The baseline is a logistic regression in a single sklearn `Pipeline` with two features from the original data: `golddiffat15` (quantitative, used as is) and `side` (nominal, one hot encoded). Data are split 75/25 into training and test sets, and evaluation happens on the held out test set. It scores 0.734 train accuracy and 0.728 test accuracy (F1 = 0.727). Guessing one class blindly gets 0.500, so calling about 73% of games from a gold number and a side label is a real result: pro games snowball. Train and test scores sit close together, so it barely overfits. Decent but incomplete, since it ignores kills, experience, and objectives, which any analyst would consult.
+The baseline is a logistic regression in a single sklearn `Pipeline` with two features from the original data: `golddiffat15` (quantitative, used as is) and `side` (nominal, one hot encoded). Data are split 75/25 into training and test sets, and evaluation happens on the held out test set. It scores 0.734 train accuracy and 0.728 test accuracy (F1 = 0.727). Guessing one class blindly gets 0.500, so calling about 73% of games from a gold number and a side label is a real result: pro games snowball. Train and test scores sit close together, so it barely overfits. Decent but incomplete, since it ignores kills, experience, and objectives.
 
 ## Final Model
 
 I added four things on top of the baseline features, each with a reason from the game itself. `kill_diff_15 = killsat15 - deathsat15`, because kills carry momentum value that raw gold understates, like shutdown bounties and free objectives while the enemy is down players. Standardized `xpdiffat15` and `csdiffat15`, because experience gates levels and ultimates and CS measures lane control, with standardization putting gold (thousands), XP (thousands), and CS (tens) on one scale so regularization treats them evenly. One hot encoded `league`, because the same lead converts to wins at different rates across regions. And `firstdragon`, an early map control signal the scalar diffs don't capture. I compared three algorithms (logistic regression, random forest, gradient boosting) in identical pipelines, tuning hyperparameters stated in advance (`C` for logistic regression; tree depth, tree count, and learning rate for the ensembles) with `GridSearchCV` and 5 fold cross validation on the training set only.
 
-The best cross validated model was gradient boosting (learning_rate: 0.1, max_depth: 3), CV accuracy 0.7419. On the same held out test set as the baseline it scores 0.731 accuracy (F1 = 0.725) against the baseline's 0.728, a gain of +0.003. Small, and the smallness is the finding: the 15 minute gold lead already carries most of what there is to know about who wins, and the extra features mostly help with games near the margin.
+The best cross validated model was gradient boosting (learning_rate: 0.1, max_depth: 3), CV accuracy 0.7419. On the same held out test set as the baseline it scores 0.731 accuracy (F1 = 0.725) against the baseline's 0.728, a gain of +0.003. The gain is small. The 15 minute gold lead already carries most of what there is to know about who wins, and the extra features mostly help with games near the margin.
 
 ## Fairness Analysis
 
